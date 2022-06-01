@@ -1,0 +1,184 @@
+---
+title: "Introduction to Snakemake"
+subtitle: "Day 1 - Exercises"
+author: "Daniel Fischer"
+date: "6 June 2022"
+output:
+  html_document:
+    toc: true
+    toc_depth: 4
+    toc_float:
+      toc_collapsed: true
+    number_sections: true
+    theme: lumen
+    df_print: paged
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = FALSE)
+```
+
+# Exercise 1
+
+## Setting up Computer environment
+
+For warming up, please login to Puhti, navigate to the project scratch space (`/scratch/project_200XXXX`)
+
+```{bash}
+cd /scratch/project_200XXX
+```
+
+There, create a subfolder with your username
+
+```{bash}
+mkdir $USER
+```
+
+Activate the snakemake functionality (remember, it was part of the bioconda module)
+
+```{bash}
+module load bioconda/3
+```
+
+And test, if snakemake is available for you (e.g. by printing the version)
+
+```{bash}
+snakemake --version
+```
+
+# Exercise 2
+
+## Own "Hello-World"
+
+Create your own "Hello-World" workflow and run it.
+
+The workflow file called `hello-world.smk` should contain something similar to this:
+
+```{bash}
+rule all:
+    input: "hello-world.txt"
+    
+rule say_hello:
+    output: "hello-world.txt"
+    shell:"""
+    echo 'Hello World!!!' > {output}
+    """
+```
+
+And you can run it with this shell command
+
+```{bash}
+snakemake --cores 1  --snakefile hello-world.smk
+```
+
+## Create a two-stage workflow
+
+This is a more advanced step. We learned, that Snakemake rules consist out of input, output and shell directives and that they can be thought of dependency graphs. The input of one rule should be the output of another rule.
+
+In the next exercise, I would like you to think about a two-staged workflow. One example could be for example that you first create the file "hello-world" and in the next step/rule, you would take this file and translate the content to upper case, e.g. using this command:
+
+`tr '[:lower:]' '[:upper:]' < hello-world.txt > HELLO-WORLD.txt`
+
+Remember to use a rule `all` that contains the final file you want to receive and also to use `{input}` and `{output}` curly bracket notations in your `shell` directive.
+
+The complete workflow would look e.g. like this:
+
+```{python}
+rule all:
+    input: "HELLO-WORLD.txt"
+
+rule say_hello:
+    output: "hello-world.txt"
+    shell:"""
+    echo 'Hello World!!!' > hello-world.txt
+    """
+
+rule capitalise:
+    input: "hello-world.txt"
+    output: "HELLO-WORLD.txt"
+    shell:"""
+    tr '[:lower:]' '[:upper:]' < {input} > {output}
+    """
+```
+
+# Exercise 3
+
+## Download the exercise data
+Run the bioinformatics example also for sample B and C. For that, we need to do a few things first. First, download the data into your user project folder that you created earlier, using these commands:
+
+`cd /scratch/project_200XXX/$USER`
+
+`wget https://github.com/snakemake/snakemake-tutorial-data/archive/v5.4.5.tar.gz`
+
+`tar --wildcards -xf v5.4.5.tar.gz --strip 1 "*/data"`
+
+and then we need to make bwa and samtools available via the module system like this
+
+`module load gcc/9.1.0`
+
+`module load bwa/0.7.17`
+
+`module load samtools`
+
+## Align B.fastq
+In the slides, we had the workflow that aligns the data for the sample A.fastq. Now, try to adjust the script such, that you can align B.fastq.
+
+The workflow look like this:
+
+```{python}
+rule bwa_map:
+    input:
+        "data/genome.fa",
+        "data/samples/B.fastq"
+    output:
+        "mapped_reads/B.bam"
+    shell:
+        "bwa mem {input} | samtools view -Sb - > {output}"
+```
+
+and the bash command to run the workflow like this:
+
+```{bash}
+snakemake -c1 -s bwa_align.smk mapped_reads/B.bam
+```
+
+# Exercise 4
+
+Adjust your alignment script also such, that you use wildcards (`{sample}`) instead of hard-coded filenames and run the alignemtn for all three samples A,B and C.
+
+The adjusted script would look like this:
+
+````{python}
+rule bwa_map:
+    input:
+        "data/genome.fa",
+        "data/samples/{sample}.fastq"
+    output:
+        "mapped_reads/{sample}.bam"
+    shell:
+        "bwa mem {input} | samtools view -Sb - > {output}"
+```
+
+and the bash command to start the workflow,looks e.g. like this:
+
+```{bash}
+snakemake -c1 -s bwa_align.smk mapped_reads/{A,B,C}.bam
+```
+
+After you prepared the three bam files, try to rerun the workflow again and check what Snakemake does.
+
+That is what it will look like:
+
+```{bash}
+Building DAG of jobs...
+Nothing to be done.
+Complete log: /users/fischerd/tmp/fischerd/.snakemake/log/2022-06-01T135131.623828.snakemake.log
+```
+
+However, now assume that one of the input files was changed. You can simulate this, by 'touching' it like this:
+
+`touch /scratch/project_200XXX/$USER/data/A.fastq`
+
+Try to do that and rerun then the pipeline again.
