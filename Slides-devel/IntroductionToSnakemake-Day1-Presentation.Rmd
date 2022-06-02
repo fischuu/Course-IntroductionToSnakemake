@@ -615,8 +615,8 @@ rule samtools_sort:
 
 Within the `shell` directive, one can access the value of the wildcard via `{wildcards.sample}`.
 
-## Adding a sorting step
-<div class="my-footer">Adding a sorting step</div> 
+## Adding an indexing step
+<div class="my-footer">Adding a indexing step</div> 
 
 Further, a bam file normally needs to be indexed for faster access as well:
 
@@ -630,8 +630,210 @@ rule samtools_index:
         "samtools index {input}"
 ```
 
+## Visualising the workflow
+<div class="my-footer">Visualising the workflow</div> 
+
+We can visualise our workflow in two ways:
+
+1. Each and every step, how our input data moves through the workflow
+2. A schematic visualisation of the dependency structure of the plot
+
+Snakemake has options to create both kinds of figures:
+
+1. Use the option `--dag`
+2. Use the option `--rulegraph`
+
+Snakemake produces an output in DOT format (graph description language)
+
+## Plotting the DAG
+<div class="my-footer">Plotting the DAG</div> 
+
+```{bash}
+snakemake --dag -s bwa_align.smk sorted_reads/{A,B,C}.bam.bai | \
+dot -Tsvg > dag.svg
+```
+
+```{r, out.width = "600px", include=TRUE, fig.align="center", fig.cap=c(""), echo=FALSE, eval=TRUE}
+knitr::include_graphics("figs/dag.svg")
+```
+
+
+## Plotting the Rulegraph
+<div class="my-footer">Plotting the DAG</div> 
+
+```{bash}
+snakemake --rulegraph -s bwa_align.smk sorted_reads/{A,B,C}.bam.bai | \
+dot -Tsvg > rulegraph.svg
+```
+
+```{r, out.width = "190px", include=TRUE, fig.align="center", fig.cap=c(""), echo=FALSE, eval=TRUE}
+knitr::include_graphics("figs/rulegraph.svg")
+```
+
 ## Dry-run
 <div class="my-footer">Dry-Run</div> 
+
+During development and testing it is not feasible to run always the pipeline.
+
+To test, if the DAG can be constructed, you can perform a **dry-run**
+
+Here, the execution of the pipeline is simulated and no code is executed.
+
+The option for that is `-n` or `--dry-run`
+
+It is often advisable to combine the dry-run with the `-p`-option. This option
+prints the generated commands also to the screen.
+
+# Exercise 5
+
+# The expand function
+
+## Expand function I
+<div class="my-footer">Expand-function I</div> 
+
+It happens often that we need to use more than one sample as input.
+
+Snakemake provides for this the helper function `expand()`
+
+If we define e.g. the Python list
+
+```{python}
+SAMPLES = ["A", "B"]
+```
+
+we can enter it to the `expand()` function like this
+
+
+## Expand function II
+<div class="my-footer">Expand-function II</div> 
+
+Using a python list `SAMPLES` in the `expand()` function
+
+```{python}
+expand("sorted_reads/{sample}.bam", sample=SAMPLES)
+```
+
+gives as output a list like this
+
+```{python}
+["sorted_reads/A.bam", "sorted_reads/B.bam"]
+```
+
+This works also via several lists as input!
+
+## Expand function III
+<div class="my-footer">Expand-function III</div> 
+
+Using two input lists
+
+```{python}
+expand("sorted_reads/{sample}.{replicate}.bam", sample=SAMPLES, replicate=[0, 1])
+```
+
+gives all combinations in a list like this:
+
+```{python}
+["sorted_reads/A.0.bam", "sorted_reads/A.1.bam",
+ "sorted_reads/B.0.bam", "sorted_reads/B.1.bam"]
+```
+
+## Variant calling
+<div class="my-footer">Variant calling</div> 
+
+Why do we need to mention both, `bam` and `bai`?
+
+```{python}
+rule bcftools_call:
+    input:
+        fa="data/genome.fa",
+        bam=expand("sorted_reads/{sample}.bam", sample=SAMPLES),
+        bai=expand("sorted_reads/{sample}.bam.bai", sample=SAMPLES)
+    output:
+        "calls/all.vcf"
+    shell:
+        "bcftools mpileup -f {input.fa} {input.bam} | "
+        "bcftools call -mv - > {output}"
+```
+
+Please, notice also the named input!
+
+# Exercise 6
+
+# Own scripts
+
+## Using own scripts I
+<div class="my-footer">Using own scripts I</div> 
+
+We often would like to apply also own scripts to the data, e.g to plot the quality scores of the variant calling
+
+We store in the following in the python script in `scripts/plot-qual.py`
+
+```{python}
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from pysam import VariantFile
+
+quals = [record.qual for record in VariantFile(snakemake.input[0])]
+plt.hist(quals)
+
+plt.savefig(snakemake.output[0])
+```
+
+## Using own scripts II
+<div class="my-footer">Using own scripts II</div> 
+
+And call the script then in another rule like this:
+
+```{python}
+rule plot_quals:
+    input:
+        "calls/all.vcf"
+    output:
+        "plots/quals.svg"
+    script:
+        "scripts/plot-quals.py"
+```
+
+## Using own scripts III
+<div class="my-footer">Using own scripts III</div> 
+
+Of course, the script could be also placed into the `shell` directly.
+
+That is bad, as it merges the workflow logix with the script logic.
+
+Having the scripts separately, we can share scripts between different workflows!
+
+# Exercise 7
+
+# Target rules
+## Target rules I
+<div class="my-footer">Target rules I</div> 
+We learned earlier that Snakemake by default uses the first rule as target.
+
+Hence, it is good practice to define a rule `all` that has all the desired output as `input` to generate it
+
+In our case, this would be
+
+```{python}
+rule all:
+    input:
+        "plots/quals.svg"
+```
+
+## Target rules II
+<div class="my-footer">Target rules II</div> 
+
+We also said that snakemake takes rules as target in the call
+
+That said, we can define subsets of interesting targests to generate by having different rules, e.g.
+
+* all
+* QC
+* Alignment
+* ...
+
+# Exercise 8
 
 # Thank you!
  

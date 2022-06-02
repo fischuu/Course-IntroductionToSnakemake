@@ -182,3 +182,249 @@ However, now assume that one of the input files was changed. You can simulate th
 `touch /scratch/project_200XXX/$USER/data/A.fastq`
 
 Try to do that and rerun then the pipeline again.
+
+# Exercise 5
+First, add the sorting and indexing step to your workflow file.
+
+It will look then like this:
+
+```{bash}
+rule bwa_map:
+    input:
+        "data/genome.fa",
+        "data/samples/{sample}.fastq"
+    output:
+        "mapped_reads/{sample}.bam"
+    shell:
+        "bwa mem {input} | samtools view -Sb - > {output}"
+
+rule samtools_sort:
+    input:
+        "mapped_reads/{sample}.bam"
+    output:
+        "sorted_reads/{sample}.bam"
+    shell:"""
+      samtools sort -T sorted_reads/{wildcards.sample} \
+               -O bam {input} > {output}
+    """
+
+rule samtools_index:
+    input:
+        "sorted_reads/{sample}.bam"
+    output:
+        "sorted_reads/{sample}.bam.bai"
+    shell:
+        "samtools index {input}"
+```
+
+Then prepare the DAG.
+
+```{bash}
+snakemake --dag -s bwa_align.smk sorted_reads/{A,B,C}.bam.bai | dot -Tsvg > dag.svg
+```
+
+And also the rulegraph
+
+```{bash}
+snakemake --rulegraph -s bwa_align.smk sorted_reads/{A,B,C}.bam.bai | dot -Tsvg > rulegraph.svg
+```
+
+as well as a dry-run (remember to delete files that have been generated already beforehand, in case it does not want to do anything)
+
+```{bash}
+snakemake -s bwa_align.smk sorted_reads/{A,B,C}.bam.bai -np
+```
+
+# Exercise 6
+
+Add the variant calling step. Where do you need to define the `SAMPLES` object? What target rule do you need to give to the call?
+
+Before executing your code, do a dry-run and create the rulegraph and dag!
+
+The workflow would look like this:
+
+```{python}
+SAMPLES = ["A", "B"]
+
+rule bwa_map:
+    input:
+        "data/genome.fa",
+        "data/samples/{sample}.fastq"
+    output:
+        "mapped_reads/{sample}.bam"
+    shell:
+        "bwa mem {input} | samtools view -Sb - > {output}"
+
+rule samtools_sort:
+    input:
+        "mapped_reads/{sample}.bam"
+    output:
+        "sorted_reads/{sample}.bam"
+    shell:"""
+      samtools sort -T sorted_reads/{wildcards.sample} \
+               -O bam {input} > {output}
+    """
+
+rule samtools_index:
+    input:
+        "sorted_reads/{sample}.bam"
+    output:
+        "sorted_reads/{sample}.bam.bai"
+    shell:
+        "samtools index {input}"
+
+rule bcftools_call:
+    input:
+        fa="data/genome.fa",
+        bam=expand("sorted_reads/{sample}.bam", sample=SAMPLES),
+        bai=expand("sorted_reads/{sample}.bam.bai", sample=SAMPLES)
+    output:
+        "calls/all.vcf"
+    shell:
+        "bcftools mpileup -f {input.fa} {input.bam} | "
+        "bcftools call -mv - > {output}"
+```
+
+And you can do the dry-run by running
+
+```{bash}
+snakemake -s bwa_align.smk calls/all.vcf -np
+```
+
+and the rulegraph like this
+
+```{bash}
+snakemake --rulegraph -s bwa_align.smk calls/all.vcf | dot -Tsvg > rulegraph_vcf.svg
+snakemake --dag -s bwa_align.smk calls/all.vcf | dot -Tsvg > dag_vcf.svg
+```
+
+# Exercise 7
+Add your own script file (like the quality histogram) to your workflow and rerun it to create the figure.
+
+The full workflow will look like this
+
+```{python}
+SAMPLES = ["A", "B"]
+
+rule bwa_map:
+    input:
+        "data/genome.fa",
+        "data/samples/{sample}.fastq"
+    output:
+        "mapped_reads/{sample}.bam"
+    shell:
+        "bwa mem {input} | samtools view -Sb - > {output}"
+
+rule samtools_sort:
+    input:
+        "mapped_reads/{sample}.bam"
+    output:
+        "sorted_reads/{sample}.bam"
+    shell:"""
+      samtools sort -T sorted_reads/{wildcards.sample} \
+               -O bam {input} > {output}
+    """
+
+rule samtools_index:
+    input:
+        "sorted_reads/{sample}.bam"
+    output:
+        "sorted_reads/{sample}.bam.bai"
+    shell:
+        "samtools index {input}"
+
+rule bcftools_call:
+    input:
+        fa="data/genome.fa",
+        bam=expand("sorted_reads/{sample}.bam", sample=SAMPLES),
+        bai=expand("sorted_reads/{sample}.bam.bai", sample=SAMPLES)
+    output:
+        "calls/all.vcf"
+    shell:
+        "bcftools mpileup -f {input.fa} {input.bam} | "
+        "bcftools call -mv - > {output}"
+
+rule plot_quals:
+    input:
+        "calls/all.vcf"
+    output:
+        "plots/quals.svg"
+    script:
+        "scripts/plot-quals.py"
+```
+
+and you can start it with
+
+```{bash}
+snakemake -c1 -s bwa_align.smk plots/quals.svg
+```
+
+Again, create also a dag-plot for the workflow
+
+```{bash}
+snakemake --dag -s bwa_align.smk plots/quals.svg | dot -Tsvg > all.svg
+```
+
+# Exercise 8
+Add the target rule `all` to the workflow and rerun the pipeline using it
+
+This is how the complete workflow look like now:
+```{python}
+SAMPLES = ["A", "B"]
+
+rule all:
+    input:
+        "plots/quals.svg"
+
+rule bwa_map:
+    input:
+        "data/genome.fa",
+        "data/samples/{sample}.fastq"
+    output:
+        "mapped_reads/{sample}.bam"
+    shell:
+        "bwa mem {input} | samtools view -Sb - > {output}"
+
+rule samtools_sort:
+    input:
+        "mapped_reads/{sample}.bam"
+    output:
+        "sorted_reads/{sample}.bam"
+    shell:"""
+      samtools sort -T sorted_reads/{wildcards.sample} \
+               -O bam {input} > {output}
+    """
+
+rule samtools_index:
+    input:
+        "sorted_reads/{sample}.bam"
+    output:
+        "sorted_reads/{sample}.bam.bai"
+    shell:
+        "samtools index {input}"
+
+rule bcftools_call:
+    input:
+        fa="data/genome.fa",
+        bam=expand("sorted_reads/{sample}.bam", sample=SAMPLES),
+        bai=expand("sorted_reads/{sample}.bam.bai", sample=SAMPLES)
+    output:
+        "calls/all.vcf"
+    shell:
+        "bcftools mpileup -f {input.fa} {input.bam} | "
+        "bcftools call -mv - > {output}"
+
+rule plot_quals:
+    input:
+        "calls/all.vcf"
+    output:
+        "plots/quals.svg"
+    script:
+        "scripts/plot-quals.py"
+``` 
+
+and we can run this workflow now such that all rules are execute by typing
+
+```{bash}
+snakemake -c1 -s bwa_align.smk
+```
