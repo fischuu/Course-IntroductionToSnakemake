@@ -1249,8 +1249,51 @@ rule samtools_sort:
 # Exercise 14
 
 # Benchmarking
+## Benchmarking I
+<div class="my-footer">Benchmarking I</div> 
 
-# Reports
+Snakemake can measure the wall clock time of a job.
+
+For that, we can use the `benchmark` directive.
+
+The directive just expects a file path, to where the benchmarking information should be stored.
+
+## Benchmarking II
+<div class="my-footer">Benchmarking II</div> 
+
+```{python}
+rule bwa_map:
+    input:
+        "data/genome.fa",
+        lambda wildcards: config["samples"][wildcards.sample]
+    output:
+        temp("mapped_reads/{sample}.bam")
+    benchmark:
+        "benchmarks/{sample}.bwa.benchmark.txt"
+    shell:
+        "(bwa mem -R '{params.rg}' -t {threads} {input} | "
+        "samtools view -Sb - > {output}) 2> {log}"
+```
+
+## Benchmarking III
+<div class="my-footer">Benchmarking III</div> 
+
+After adding the benchmarking directive to a rule, we can get the detailed
+benchmarking information for the runtime of each rule per sample like this:
+
+```{bash}
+s       h:m:s   max_rss max_vms max_uss max_pss io_in   io_out  mean_load       cpu_time
+1.2536  0:00:01 26.44   3373.65 23.18   23.39   5.49    0.00    39.89   0.87
+
+```
+
+This information can then be used for
+
+* optimising the resource allocation
+* Detect bottlenecks
+* ...
+
+# Exercise: Benchmarking
 
 # Deployment of Software dependencies
 
@@ -1269,6 +1312,27 @@ rule samtools_sort:
 # Remote files (S3, CSC)
 
 # Unit tests
+
+
+# Reports
+
+## Automatic Report I
+<div class="my-footer">Automatic Report I</div> 
+
+Snakemake has the build-in feature to visualise a runtime report.
+
+The command-line option for this is `--report`, so that the report can be created like this:
+
+```{bash}
+snakemake -c1 -s bwa_align.smk --configfile config.yaml --report
+```
+
+That way a report called report.html is created.
+
+## Automatic Report II
+<div class="my-footer">Automatic Report II</div> 
+
+
 
 # Thank you!
  

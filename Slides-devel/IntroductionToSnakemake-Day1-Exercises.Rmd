@@ -623,3 +623,6 @@ snakemake -c4 -s bwa_align.smk --configfile config.yaml --summary
 Add the temp and protected functions to your workflow and check how snakemake behaves.
 
 Rerun the workflow and check, if snakemake allows you to overwrite the created and protected files.
+
+# Exercise: Benchmarking
+Add a benchmarking directive to the bcftools_call rule and check how the resources were used after the run
