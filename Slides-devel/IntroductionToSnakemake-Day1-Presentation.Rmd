@@ -764,7 +764,7 @@ Please, notice also the named input!
 ## Using own scripts I
 <div class="my-footer">Using own scripts I</div> 
 
-We often would like to apply also own scripts to the data, e.g to plot the quality scores of the variant calling
+We often would like to apply also own scripts to the data, e.g to plot the quality scores of the variant calling.
 
 We store in the following in the python script in `scripts/plot-qual.py`
 
@@ -834,6 +834,441 @@ That said, we can define subsets of interesting targests to generate by having d
 * ...
 
 # Exercise 8
+
+# Multi-threading
+
+## Specifying number of threads I
+<div class="my-footer">Specifying number of threads I</div> 
+
+Until now, we have processed our scripts only using one core. 
+
+However, you can define the number of threads using the directive `threads`:
+
+```{python}
+rule bwa_map:
+    input:
+        "data/genome.fa",
+        "data/samples/{sample}.fastq"
+    output:
+        "mapped_reads/{sample}.bam"
+    threads: 8
+    shell:
+        "bwa mem -t {threads} {input} | samtools view -Sb - > {output}"
+```
+
+## Specifying number of threads II
+<div class="my-footer">Specifying number of threads II</div> 
+
+Of course, if you want to run a rule with a certain amount of course,
+these need to be also available, otherwise the number of cores will be down-scaled.
+
+In the workflow call, you can specify the number of cores using the `--cores` or `-c` -option.
+
+If no number if given, all available cores are used.
+
+```{bash}
+snakemake -c10 -s bwa_align.smk
+```
+
+# Exercise 9
+
+# Configuration files
+
+## Configuration files I
+<div class="my-footer">Configuration filesI</div> 
+
+Until now we organised our workflow in a single file.
+
+This, however, is not very feasible if you want to make your workflow centrally customizable.
+
+For that reason, Snakemake provides functions to put metainformation into a configfile.
+
+For that, you can use either YAML or JSON format.
+
+## YAML I
+<div class="my-footer">YAML I</div> 
+
+Personally, I like YAML more, hence I will introduce only that one
+
+TO BE CONTINUED!!!!
+
+## Creating config.yaml file
+<div class="my-footer">Creating config.yaml file</div> 
+
+As a little reminder, these are the relevant parts in our current workflow:
+
+```{python}
+SAMPLES = ["A", "B"]
+
+rule bcftools_call:
+    input:
+        fa="data/genome.fa",
+        bam=expand("sorted_reads/{sample}.bam", sample=SAMPLES),
+        bai=expand("sorted_reads/{sample}.bam.bai", sample=SAMPLES)
+    output:
+        "calls/all.vcf"
+    shell:
+        "bcftools mpileup -f {input.fa} {input.bam} | "
+        "bcftools call -mv - > {output}"
+``` 
+
+## Creating config.yaml file II
+<div class="my-footer">Creating config.yaml file II</div> 
+
+First, we translate the python list `SAMPLES` into a yaml-file like this:
+
+```{yaml}
+samples:
+    A: data/samples/A.fastq
+    B: data/samples/B.fastq
+```
+
+Please note that (for later purposes), we provide also the fastq-file path for the samples
+
+## Creating config.yaml file III
+<div class="my-footer">Creating config.yaml file III</div> 
+
+Next, we need to make this configuration also available to Snakemake.
+
+For that, we use the directive `configfile:` like this, as first line of our snakemake workflow
+
+```{bash}
+configfile: "config.yaml"
+```
+
+Please keep in mind, that the definition for `SAMPLE` is not needed anymore.
+
+
+## Creating config.yaml file IV
+<div class="my-footer">Creating config.yaml file IV</div> 
+
+Naturally, the reference to `SAMPLES` needs now to be adjusted. 
+
+Instead of refering now to `SAMPLE`, we need to refer to the information from the configuration:
+
+```{python}
+rule bcftools_call:
+    input:
+        fa="data/genome.fa",
+        bam=expand("sorted_reads/{sample}.bam", sample=config["samples"]),
+        bai=expand("sorted_reads/{sample}.bam.bai", sample=config["samples"])
+    output:
+        "calls/all.vcf"
+    shell:
+        "bcftools mpileup -f {input.fa} {input.bam} | "
+        "bcftools call -mv - > {output}"
+```
+
+## Creating config.yaml file V
+<div class="my-footer">Creating config.yaml file V</div> 
+
+In addition to the hardcoded configuration file in the workflow, snakemake offers also
+an option `--configfile` where the user can specify a configuration file.
+
+Files provided to `--configfile` will overwrite the parameters given in the workflow definition.
+
+Providing custom configurations via this option is the common way to execute workflows.
+
+## Creating more keys I
+<div class="my-footer">Creating more keys I</div> 
+
+Eventually, we would like eliminate all hard-coded file-paths to make the workflow as flexible as possible.
+
+Hence, another input variable we would like to remove is the defintion of the *genome* and the alignment step:
+
+```{python}
+rule bwa_map:
+    input:
+        "data/genome.fa",
+        "data/samples/{sample}.fastq"
+    output:
+        "mapped_reads/{sample}.bam"
+    shell:
+        "bwa mem {input} | samtools view -Sb - > {output}"
+```
+
+## Creating more keys II
+<div class="my-footer">Creating more keys II</div> 
+
+Instead of using the hardcoded path, we should refer to a key in the configuration file:
+
+```{python}
+rule bwa_map:
+    input:
+        config["genome"],
+        "data/samples/{sample}.fastq"
+    output:
+        "mapped_reads/{sample}.bam"
+    shell:
+        "bwa mem {input} | samtools view -Sb - > {output}"
+```
+
+## Creating more keys III
+<div class="my-footer">Creating more keys III</div> 
+
+Naturally, we have to define in the configuration then, the keyword `genome`:
+
+```{python}
+genome: "data/genome.fa"
+
+samples:
+    A: data/samples/A.fastq
+    B: data/samples/B.fastq
+```
+
+# Exercise 10
+
+# Input functions
+
+## Using input functions I
+<div class="my-footer">Using iput functions I</div> 
+
+Instead of hard-coded paths for input files you can also provide python functions.
+
+That provides another level of generalisation and flexibility to the workflow.
+
+You noticed, in our config file we provide already the paths to the FASTQ files from the samples, we make now use of them.
+
+However, first we need to dive a little deeper into the way Snakemake functions.
+
+## Snakemake execution phases I
+<div class="my-footer">Snakemake execution phases I</div> 
+
+Snakemake is executed in three phases:
+
+1. Initialisation: Files defining the workflow are parsed and all rules are instantiated
+
+2. DAG: DAG is built by filling wildcards and matching input and output files
+
+3. Scheduling: DAG of jobs is executed, with jobs started according to available resources
+
+## Snakemake execution phases II
+<div class="my-footer">Snakemake execution phases II</div> 
+
+`expand-functions are executed in the **initialisation**-phase.
+
+Here, we do **not** know about jobs, wildcards, rule dependencies. 
+
+<p class="warning">
+We cannot determine the FASTQ-files from the config file in this phase! We do not know what jobs will be generated from this rule!
+</p>
+ 
+<p class="green">
+We need to fill those in the **DAG**-phase, using Python functions
+</p>
+
+## Python functions
+<div class="my-footer">Python functions</div> 
+
+Python functions follow a basic syntax:
+
+```{python}
+def <FUNCTIONNAME>(<INPUT>)
+    <BODY>
+    return <OUTPUT>
+```
+
+Following that principle, we can use in our case a very basic python function to get the desired information
+
+## Defining onput function I
+<div class="my-footer">Defining onput function I</div> 
+
+The function that reads the file path information from the corresponding key in the configuration look like this
+
+```{python}
+def get_bwa_map_input_fastqs(wildcards):
+    return config["samples"][wildcards.sample]
+```
+
+* Input functions take as single argument a `wildcards` object.
+
+* Wildcard values are accessed via attribute `wildcards.sample`
+
+* Functions have to return a single string or a list of strings
+
+## Defining onput function II
+<div class="my-footer">Defining onput function II</div> 
+
+Now, we can remove the hardcoded file paths and use the function instead in the rule `bwa_map:`
+
+```{python}
+rule bwa_map:
+    input:
+        config["genome"],
+        get_bwa_map_input_fastqs
+    output:
+        "mapped_reads/{sample}.bam"
+    threads: 8
+    shell:
+        "bwa mem -t {threads} {input} | samtools view -Sb - > {output}"
+```
+
+# Exercise 11
+
+# Paramters and logging
+## Parameters I
+<div class="my-footer">Parameters I </div> 
+
+Commands require often more than just `input` and `output`
+
+These are either 
+
+* hardcoded paramters
+
+or 
+
+* user-definable paramters
+
+Snakemake uses the `params` directive to deal with parameters
+
+## Parameters II
+<div class="my-footer">Parameters II</div> 
+
+```{python}
+rule bwa_map:
+    input:
+        "data/genome.fa",
+        get_bwa_map_input_fastqs
+    output:
+        "mapped_reads/{sample}.bam"
+    params:
+        rg=r"@RG\tID:{sample}\tSM:{sample}"
+    threads: 8
+    shell:
+        "bwa mem -R '{params.rg}' -t {threads} {input} | samtools view -Sb - > {output}"
+```
+
+Please note the leading `r`: the string is treated as raw-string, all escaped characters are treated "as is"
+
+## Logging I
+<div class="my-footer">Logging I</div> 
+
+As the workflow gets more complex, it is getting more important to store the output of the different function.
+
+This should be preferable happen in individual files. For that, snakemake offers the `log`-directive.
+
+<p class="warning">
+A common mistake is to forget the `sample` keyword in the log files definition. When rules are created "per sample", also the log files need to created "per sample"
+</p>
+
+The typical way of logging is to redirect the STDERR (`2>`) into a file. Depending on the nature of the shell command, it might be also required to pipe the STDOUT (`>`) or both, the STDERR and SDTOUT  (`&>`). 
+
+## Logging II
+<div class="my-footer">Logging II</div> 
+
+```{python}
+rule bwa_map:
+    input:
+        "data/genome.fa",
+        get_bwa_map_input_fastqs
+    output:
+        "mapped_reads/{sample}.bam"
+    params:
+        rg=r"@RG\tID:{sample}\tSM:{sample}"
+    log:
+        "logs/bwa_mem/{sample}.log"
+    threads: 8
+    shell:
+        "(bwa mem -R '{params.rg}' -t {threads} {input} | "
+        "samtools view -Sb - > {output}) 2> {log}"
+```
+
+## Summary - function
+<div class="my-footer">Summary - function</div> 
+
+Snakemake can provide a table of all output files and associated rules with the `--summary command`.
+
+Also, snakemake tracks if the function source code was changed, if this happened, this will be added to the summary table as well.
+
+In our case, we can run the summary table like this:
+
+```{bash}
+snakemake -c4 -s bwa_align.smk --configfile config3.yaml --summary
+```
+
+# Exercise 13
+
+# Temp and protected files
+## temp files I
+<div class="my-footer">temp files I</div> 
+
+By default, snakemake does not delete anything that it creates. 
+
+For larger workflows, that can create a HUGE overhead of files that are actually not needed.
+
+Of course, snakemake does not know, what files are of little interest for you.
+
+For that reason, you can mark outputfiles as temporary with the `temp()` function
+
+Once those files are not required anymore for downstream results, snakemake will delete them.
+
+## temp files II
+<div class="my-footer">temp files II</div> 
+
+```{python}
+rule bwa_map:
+    input:
+        config["genome"],
+        get_bwa_map_input_fastqs
+    output:
+        temp("mapped_reads/{sample}.bam")
+    params:
+        rg=r"@RG\tID:{sample}\tSM:{sample}"
+    log:
+        "logs/bwa_mem/{sample}.log"
+    threads: 8
+    shell:
+        "(bwa mem -R '{params.rg}' -t {threads} {input} | "
+        "samtools view -Sb - > {output}) 2> {log}"
+```
+
+## Protected files I
+<div class="my-footer">Protected files I</div> 
+
+On the contrary, there might be files of utter importance that should be protected from
+deleting by accident.
+
+Snakemake can mark files to be important with the `protected()`-function.
+
+As a consequence, these files will be marked as write-protected in the file-system and cannot be overwritten or deleted anymore by accident.
+
+## Protected files II
+<div class="my-footer">Protected files II</div> 
+
+```{python}
+rule samtools_sort:
+    input:
+        "mapped_reads/{sample}.bam"
+    output:
+        protected("sorted_reads/{sample}.bam")
+    shell:
+        "samtools sort -T sorted_reads/{wildcards.sample} "
+        "-O bam {input} > {output}"
+```
+
+# Exercise 14
+
+# Benchmarking
+
+# Reports
+
+# Deployment of Software dependencies
+
+# Cluster execution
+
+# Code checker (lint)
+
+# Job grouping
+
+# Directory as output
+
+# Tabular configuration
+
+# Validation
+
+# Remote files (S3, CSC)
+
+# Unit tests
 
 # Thank you!
  

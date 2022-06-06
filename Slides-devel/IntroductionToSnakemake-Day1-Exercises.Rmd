@@ -1,6 +1,6 @@
 ---
 title: "Introduction to Snakemake"
-subtitle: "Day 1 - Exercises"
+subtitle: "Exercises"
 author: "Daniel Fischer"
 date: "6 June 2022"
 output:
@@ -428,3 +428,198 @@ and we can run this workflow now such that all rules are execute by typing
 ```{bash}
 snakemake -c1 -s bwa_align.smk
 ```
+
+# Exercise 9
+
+Change the number of threads in the rule `bwa_map`according to your machine.
+
+It would look e.g. like this then:
+
+```{python}
+rule bwa_map:
+    input:
+        "data/genome.fa",
+        "data/samples/{sample}.fastq"
+    output:
+        "mapped_reads/{sample}.bam"
+    threads: 8
+    shell:
+        "bwa mem -t {threads} {input} | samtools view -Sb - > {output}"
+```
+
+Then, rerun your workflow using different amount of threads provided. You can force snakemake to rerun an entire workflow by using the option `--forceall` in the `snakemake`-call:
+
+```{bash}
+snakemake -c2 -s bwa_align.smk --forceall
+```
+
+# Exercise 10
+
+## Repeat config file confiration from slides
+Create a configuration file for your workflow for samples A and B, adjust the workflow to use it-
+
+The configration would look like this
+
+```{python}
+samples:
+    A: data/samples/A.fastq
+    B: data/samples/B.fastq
+``` 
+
+and the workflow like this
+
+```{python}
+rule bcftools_call:
+    input:
+        fa="data/genome.fa",
+        bam=expand("sorted_reads/{sample}.bam", sample=config["samples"]),
+        bai=expand("sorted_reads/{sample}.bam.bai", sample=config["samples"])
+    output:
+        "calls/all.vcf"
+    shell:
+        "bcftools mpileup -f {input.fa} {input.bam} | "
+        "bcftools call -mv - > {output}"
+```
+
+## Extend the configuration
+
+Now, create a new configuration, e.g. called config2.yaml, including sample C.
+
+It will look like this
+
+```{python}
+samples:
+    A: data/samples/A.fastq
+    B: data/samples/B.fastq
+    C: data/samples/C.fastq
+```
+
+Then rerun the workflow using the new configfile, using the `--configfile option`
+
+```{bash}
+snakemake -c1 -s bwa_align.smk --configfile config2.yaml --forceall -np
+```
+
+## Add more keys
+
+Remove the hardcoded genome from your worflow and add its path into the configuration file.
+
+The new configuration file looks like this:
+
+```{python}
+genome: "data/genome.fa"
+
+samples:
+    A: data/samples/A.fastq
+    B: data/samples/B.fastq
+    C: data/samples/C.fastq
+
+```
+
+And the relevant parts of the updated workflow
+
+```{python}
+rule bwa_map:
+    input:
+        config["genome"],
+        "data/samples/{sample}.fastq"
+    output:
+        "mapped_reads/{sample}.bam"
+    shell:
+        "bwa mem {input} | samtools view -Sb - > {output}"
+```
+
+# Exercise 11
+
+Define a python function as input for bwa_map that makes use of the information in the configfile
+
+This is how the relevant parts of the workflow look like:
+
+```{python}
+def get_bwa_map_input_fastqs(wildcards):
+    return config["samples"][wildcards.sample]
+
+rule bwa_map:
+    input:
+        config["genome"],
+        get_bwa_map_input_fastqs
+    output:
+        "mapped_reads/{sample}.bam"
+    shell:
+        "bwa mem {input} | samtools view -Sb - > {output}"
+
+```
+
+# Exercise 12
+
+Define the option `prior_mutation_rate` with values `0.001` in the config file and pass it as parameter to the `bcftools_call` rule, so that effectively this command is executed:
+
+`
+bcftools call -mv -P 0.001 - >
+` 
+
+The config file would like this this:
+
+```{python}
+genome: "data/genome.fa"
+
+prior_mutation_rate: 0.001
+
+samples:
+    A: data/samples/A.fastq
+    B: data/samples/B.fastq
+    C: data/samples/C.fastq
+```
+
+and the relevant rule in the workflow:
+
+```{python}
+rule bcftools_call:
+    input:
+        fa=config["genome"],
+        bam=expand("sorted_reads/{sample}.bam", sample=config["samples"]),
+        bai=expand("sorted_reads/{sample}.bam.bai", sample=config["samples"])
+    output:
+        "calls/all.vcf"
+    params:
+        rate=config["prior_mutation_rate"]
+    shell:
+        "(bcftools mpileup -f {input.fa} {input.bam} | "
+        "bcftools call -mv -P {params.rate} - > {output})"
+```
+
+# Exercise 13
+Add also a log directive to the `bcftools_call` directive
+
+The updated `bcftools_call` function looks like this:
+
+```{python}
+rule bcftools_call:
+    input:
+        fa=config["genome"],
+        bam=expand("sorted_reads/{sample}.bam", sample=config["samples"]),
+        bai=expand("sorted_reads/{sample}.bam.bai", sample=config["samples"])
+    output:
+        "calls/all.vcf"
+    params:
+        rate=config["prior_mutation_rate"]
+    log:
+        "logs/bcftools_call/all.log"
+    shell:
+        "(bcftools mpileup -f {input.fa} {input.bam} | "
+        "bcftools call -mv -P {params.rate} - > {output}) 2> {log}"
+```
+
+Print the `summary` table for your workflow, touch some input files and redo the summary.
+
+Command to run the summary:
+
+```{bash}
+snakemake -c4 -s bwa_align.smk --configfile config.yaml --summary
+```
+
+# Exercise 14
+
+Add the temp and protected functions to your workflow and check how snakemake behaves.
+
+Rerun the workflow and check, if snakemake allows you to overwrite the created and protected files.
