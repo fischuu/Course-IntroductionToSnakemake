@@ -1,3 +1,8 @@
+# DISCLAIMER
+This course is, despite that it is public here, still under development and not ready yet! 
+
+The material is mainly based on the materials from the official snakemake documentation.
+
 # Course-IntroductionToSnakemake
 
 Welcome to the course "Introduction to Snakemake".
