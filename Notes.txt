@@ -1,0 +1,19 @@
+# System requirements
+
+For this tutorial to work, you need to have (conda and) apptainer installed. The conda environment is only reuqired for installing Snakemake itself so in case you do not have conda you need to
+install Snakemake manually. Please check other sources or ask our local IT support to prepare your machine
+
+# Installing Snakemake
+
+Snakemake is easy to install if you have conda available, just run
+
+```
+conda create -c conda-forge -c bioconda -n snakemake snakemake
+```
+
+afterwards you run do
+
+```
+conda activate snakemake
+snakemake --version
+```
