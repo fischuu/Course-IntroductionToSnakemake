@@ -1,26 +1,26 @@
 ---
-title: Introduction to <br> Snakemake
+title: Introduction to Snakemake
 author: "Daniel Fischer"
-date: "6 June 2022"
+date: "January 2026, v. 1.0"
 output:
   ioslides_presentation:
     css: style_bw.css
     logo: Luke.png
     template: template.html
   slidy_presentation: default
-subtitle: Day 1
+subtitle: A comprehensive overview
 ---
 
 ```{css, echo = FALSE}
 .remark-slide-content {
-  font-size: 28px;
+  font-size: 30px;
   padding: 20px 80px 20px 80px;
 }
 .remark-code, .remark-inline-code {
   background: #f0f0f0;
 }
 .remark-code {
-  font-size: 24px;
+  font-size: 30px;
 }
 .huge .remark-code { /*Change made here*/
   font-size: 200% !important;
@@ -60,10 +60,12 @@ knitr::opts_chunk$set(echo = TRUE,
 ## Outline of topics
 <div class="my-footer">Outline of topics</div> 
 
-**Background**
-
-1. Motivation for workflow managers
-2. What is Snakemake?
+1. Background - Motivation for workflow managers
+2. Snakemake - How to install Snakemake
+3. Basics of Snakemake - Hello World, Wildcards, DAG visualisation
+4. Advanced Snakemake - Expand function, own scripts, target rules, multi-threading, configuration files, input functions
+5. Breakout sessions - Hands-on exercises
+6. Summary and outlook
 
 # Background
 
@@ -84,10 +86,11 @@ knitr::include_graphics("figs/Pills.png")
 There might be a few things that you asked yourself, though:
 
 1. Is my analysis reproducible?
-2. Is my analysis script reusable?
-3. Can I restart a crashed analysis run?
+2. Is my analysis reusable?
+3. Can I easily restart a crashed analysis run?
 4. How do I share my analysis with others?
 5. Where do I get all the required software from?
+6. How do I version the software I use?
 6. How do I scale my analysis between my laptop and a HPC?
 
 ## Motivation for workflow managers III
@@ -125,21 +128,27 @@ Why to use Snakemake?
 2. It is based on Python
 3. It uses filenames, so high readability
 4. Covers almost any use-case of regular users
-5. It straight forward to install
+5. It is straight forward to install
 
 ## How to install Snakemake?
 <div class="my-footer">How to install Snakemake?</div> 
 
-First, you would need to fulfill the prerequisites 
+You would need to fulfill the some basic requirements 
 
-1. Make sure you have conda installed on your linux box
+1. You would need to have Python >= 3.8 installed
+
+```{bash, eval=FALSE}
+$ python --version
+``` 
+
+2. Using conda makes it very easy to install Snakemake, so you could check the availablity
     
 ```{bash, eval=FALSE}
 $ conda --version
 ```    
 
 <p class="warning">
-If this throws an error, proceed to install conda.
+If this throws an error, proceed to 'Install via pip' or install conda.
 </p>
 
 <p class="green">
@@ -157,8 +166,7 @@ https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html
 Essentially, you need to download the software like this:
 
 ```{bash, eval=FALSE}
-$ wget https://repo.anaconda.com/miniconda/\
-       Miniconda3-py39_4.12.0-Linux-x86_64.sh
+$ wget https://repo.anaconda.com/miniconda/Miniconda3-py39_4.12.0-Linux-x86_64.sh
 ```
 
 And then run the installation script
@@ -167,7 +175,9 @@ And then run the installation script
 $ bash Miniconda3-py39_4.12.0-Linux-x86_64.sh
 ```    
 
-## Install Snakemake via Conda?
+However, keep in mind that Anaconda is a commercial product, so you should be aware of their licensing terms.
+
+## Install Snakemake via Conda
 <div class="my-footer">Install Snakemake via Conda</div> 
     
 If conda is available on the system, it is very easy to install conda
@@ -188,7 +198,43 @@ And test it
 (snakemake)$ snakemake --version
 ```
 
-## Snakemake on CSC/Puhti
+In case the conda dependency solver takes too long, try mamba instead.
+
+## Install Snakemake via pip
+<div class="my-footer">Install Snakemake via pip</div> 
+
+If you do not want to use conda to install Snakemake, you can also use pip. Here, it is the easiest to create a virtual environment first
+
+```{bash, eval=FALSE}
+cd /path/to/where/you/want/to/create/the/env
+mkdir myvenv
+python -m venv myvenv/
+```
+
+Then activate that environment and install snakemake as well as some dependencies into it
+
+```{bash, eval=FALSE}
+source myvenv/bin/activate
+pip3 install snakemake==9.14.5
+pip3 install snakemake-executor-plugin-slurm snakemake-storage-plugin-http
+pip3 install snakemake-executor-plugin-cluster-generic
+pip3 install pandas numpy matplotlib jinja2 pygments networkx graphviz pandoc
+```
+
+If you want to use Snakemake, you can later just activate the environment again
+
+```{bash, eval=FALSE}
+source myvenv/bin/activate
+```
+
+and also, you can deactivate it in a similar way
+
+```{bash, eval=FALSE}
+deactivate
+```
+
+
+## Snakemake on CSC/Puhti or other maintained HPC systems
 <div class="my-footer">Snakemake on CSC/Puhti</div> 
 
 * I asked from CSC support, if they could install snakemake into the default installation
@@ -292,7 +338,7 @@ say_hello        1              1              1
 total            1              1              1
 
 Select jobs to execute...
-```` 
+``` 
 
 (continues on next slide)
 
@@ -654,7 +700,7 @@ dot -Tsvg > dag.svg
 ```
 
 ```{r, out.width = "600px", include=TRUE, fig.align="center", fig.cap=c(""), echo=FALSE, eval=TRUE}
-knitr::include_graphics("figs/dag.svg")
+#knitr::include_graphics("figs/dag.svg")
 ```
 
 
@@ -667,7 +713,7 @@ dot -Tsvg > rulegraph.svg
 ```
 
 ```{r, out.width = "190px", include=TRUE, fig.align="center", fig.cap=c(""), echo=FALSE, eval=TRUE}
-knitr::include_graphics("figs/rulegraph.svg")
+#knitr::include_graphics("figs/rulegraph.svg")
 ```
 
 ## Dry-run

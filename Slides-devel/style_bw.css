@@ -16,15 +16,22 @@
   You can find the GNU General Public License at <http://www.gnu.org/licenses/>.
 */ 
 
-slides > slide {
-  display: none;
-  font-family: 'Open Sans', Arial, sans-serif;
-  font-size: 26px;
-  color: #797979;
+/* For 4:3 use this format:
   width: 900px;
   height: 700px;
   margin-left: -450px;
   margin-top: -350px;
+*/
+
+slides > slide {
+  display: none;
+  font-family: 'Open Sans', Arial, sans-serif;
+  font-size: 30px;
+  color: #797979;
+  width: 1920px;
+  height: 1080px;
+  margin-left: -960px;
+  margin-top: -540px;
   padding: 40px 60px;
   -webkit-border-radius: 5px;
   -moz-border-radius: 5px;
@@ -47,7 +54,7 @@ slides > slide hgroup h2 {
 }
 
 div.my-footer {
-    font-size: 12pt;
+    font-size: 18pt;
     content: attr(label);
     position: absolute;
     margin-left: auto;
@@ -94,7 +101,7 @@ border: 0px solid black;
 margin-left: 0px;
 border-radius: 0px;
 font-family: sans-serif;
-font-size: 10px;
+font-size: 15px;
 }
 
 p.link {
@@ -104,7 +111,7 @@ border: 0px solid black;
 margin-left: 0px;
 border-radius: 0px;
 font-family: sans-serif;
-font-size: 14px;
+font-size: 20px;
 }
 
 p.tiny {
